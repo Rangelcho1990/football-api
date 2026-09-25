@@ -49,13 +49,24 @@ Run commands from the project root.
 
    Generate separate random values with `php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'`. URL-encode the database password in the connection URL and match `serverVersion` to your PostgreSQL version. `.env.local` is ignored by Git. Symfony reads the committed `.env` and environment-specific files as defaults; real environment variables take precedence over dotenv files.
 
-4. Generate JWT signing keys:
+4. Generate a JWT passphrase, then the signing keys:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+   Copy the generated value into `JWT_PASSPHRASE` in `.env.local` before generating the keys. This passphrase encrypts the private key and is required to unlock it; keep it unchanged when reusing an existing key pair.
 
    ```bash
    php bin/console lexik:jwt:generate-keypair --skip-if-exists
+   chmod 600 config/jwt/private.pem
    ```
 
-   PEM files under `config/jwt/` are ignored by Git. Keep the configured passphrase consistent with the private key. Generating keys prepares authentication infrastructure; it does not create a working login endpoint.
+   The command creates `config/jwt/private.pem` and `config/jwt/public.pem` at the paths configured above, creating the directory if needed. `--skip-if-exists` preserves existing keys; it does not update their passphrase. The PHP process must be able to read the private key.
+
+   Never commit the private key or the passphrase to GitHub. `.env.local` and PEM files under `config/jwt/` are ignored by Git. The public key is not secret, but is kept out of Git with the other environment-specific keys. Use separate keys and passphrases for development and production.
+
+   Generating keys prepares authentication infrastructure; it does not create a working login endpoint.
 
 5. Start a local development server:
 

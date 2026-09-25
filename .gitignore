@@ -20,3 +20,5 @@
 
 .php-cs-fixer.cache
 .phpunit.cache
+
+/config/jwt/*.pem
