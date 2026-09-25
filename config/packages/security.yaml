@@ -1,0 +1,52 @@
+security:
+    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+        App\Domain\User\User:
+            algorithm: bcrypt
+
+    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    providers:
+        users:
+            entity:
+                class: 'App\Domain\User\User'
+                property: 'username'
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+
+        login:
+            pattern: ^/login
+            stateless: true
+            json_login:
+                check_path: /login_check
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        register:
+            pattern: ^/api/users #players
+            stateless: true
+
+        games:
+            pattern: ^/api/games
+            stateless: true
+
+        top-players:
+            pattern: ^/api/top-players
+            stateless: true
+
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: users
+            jwt: ~
+
+    # Note: Only the *first* matching rule is applied
+    access_control:
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/users, roles: PUBLIC_ACCESS }
+        - { path: ^/api/top-players, roles: PUBLIC_ACCESS }
+        - { path: ^/api/games, roles: PUBLIC_ACCESS }
+        - { path: ^/api,       roles: IS_AUTHENTICATED_FULLY }
