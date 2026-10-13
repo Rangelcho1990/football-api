@@ -4,42 +4,27 @@
                   xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
                           https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
 
-    <entity name="App\Domain\Game\Game" table="game" repository-class="App\Infrastructure\Doctrine\GameRepository">
+    <entity name="App\Domain\Game\Game" table="game">
 
         <id name="id" type="integer" column="id">
-            <generator strategy="AUTO"/>
+            <generator strategy="IDENTITY"/>
         </id>
 
         <field name="gameTime" column="game_time" type="datetime"  />
         <field name="score" column="score" length="50" nullable="true" />
 
         <many-to-one field="league" target-entity="App\Domain\League\League">
-            <cascade>
-                <cascade-all />
-            </cascade>
-            <join-column name="league" referenced-column-name="id" on-delete="CASCADE" />
+            <join-column name="league" referenced-column-name="id" nullable="false" on-delete="RESTRICT" />
         </many-to-one>
 
         <many-to-one field="homeTeam" target-entity="App\Domain\Team\Team">
-            <cascade>
-                <cascade-all />
-            </cascade>
-            <join-column name="home_team" referenced-column-name="id" on-delete="CASCADE" />
+            <join-column name="home_team" referenced-column-name="id" nullable="false" on-delete="RESTRICT" />
         </many-to-one>
 
         <many-to-one field="awayTeam" target-entity="App\Domain\Team\Team">
-            <cascade>
-                <cascade-all />
-            </cascade>
-            <join-column name="away_team" referenced-column-name="id" on-delete="CASCADE" />
+            <join-column name="away_team" referenced-column-name="id" nullable="false" on-delete="RESTRICT" />
         </many-to-one>
 
-        <one-to-many field="Appes" target-entity="App\Domain\User\App" mapped-by="game">
-            <cascade>
-                <cascade-persist />
-                <cascade-remove />
-            </cascade>
-        </one-to-many>
 
         <unique-constraints>
             <unique-constraint columns="home_team,away_team,game_time" name="gameIndex" />

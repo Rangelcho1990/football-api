@@ -7,23 +7,17 @@
     <entity name="App\Domain\User\User" table="user" repository-class="App\Infrastructure\Doctrine\UserRepository">
 
         <id name="id" type="integer" column="id">
-            <generator />
+            <generator strategy="IDENTITY"/>
         </id>
 
-        <field name="username" column="username" length="50" nullable="true" />
-        <field name="password" column="password" length="500" nullable="true" />
-        <field name="isActive" column="isActive" length="500" nullable="true" />
-        <field name="point" column="point" length="10" nullable="true" />
+        <field name="username" column="username" length="50" nullable="false" />
+        <field name="password" column="password" length="500" nullable="false" />
+        <field name="isActive" column="isActive" type="boolean" nullable="false" />
+        <field name="point" column="point" type="integer" nullable="false" />
         <field name="email" column="email" length="100" />
-        <field name="avatar" column="avatar" length="50" nullable="true" />
-        <field name="createdAt" column="created_at" type="datetime" />
+        <field name="avatar" column="avatar" type="integer" nullable="false" />
+        <field name="createdAt" column="created_at" type="datetime_immutable" />
 
-        <one-to-many field="Appes" target-entity="App\Domain\User\App" mapped-by="user">
-            <cascade>
-                <cascade-persist />
-                <cascade-remove />
-            </cascade>
-        </one-to-many>
 
         <unique-constraints>
             <unique-constraint columns="username" name="username" />

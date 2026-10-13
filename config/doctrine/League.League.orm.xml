@@ -4,16 +4,16 @@
                   xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
                           https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
 
-    <entity name="App\Domain\League\League" table="league" repository-class="App\Infrastructure\Doctrine\LeagueRepository">
+    <entity name="App\Domain\League\League" table="league">
 
         <id name="id" type="integer" column="id">
-            <generator />
+            <generator strategy="IDENTITY"/>
         </id>
 
-        <field name="name" column="name" length="50" nullable="true" />
-        <field name="leagueNameSlugged" column="league_name_slugged" length="50" nullable="true" />
-        <field name="logo" column="logo" length="150" nullable="true" />
-        <field name="leagueApiId" column="league_api_id" length="150" nullable="true" />
+        <field name="name" column="name" length="50" nullable="false" />
+        <field name="leagueNameSlugged" column="league_name_slugged" length="50" nullable="false" />
+        <field name="logo" column="logo" length="150" nullable="false" />
+        <field name="leagueApiId" column="league_api_id" type="integer" nullable="false" />
 
     </entity>
 

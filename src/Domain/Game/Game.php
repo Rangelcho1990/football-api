@@ -10,7 +10,7 @@ use App\Domain\Team\Team;
 class Game
 {
     private int $id;
-    private string $score;
+    private ?string $score = null;
     private Team $homeTeam;
     private Team $awayTeam;
     private \DateTimeInterface $gameTime;
@@ -28,12 +28,12 @@ class Game
         return $this;
     }
 
-    public function getScore(): string
+    public function getScore(): ?string
     {
         return $this->score;
     }
 
-    public function setScore(string $score): self
+    public function setScore(?string $score): self
     {
         $this->score = $score;
 

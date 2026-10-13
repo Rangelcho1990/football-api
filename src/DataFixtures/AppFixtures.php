@@ -18,7 +18,7 @@ class AppFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
-        $league = (new League())->setId(1);
+        $league = new League();
         $league->setName('Premier League');
         $league->setLeagueNameSlugged('premier-league');
         $league->setLeagueApiId(123);

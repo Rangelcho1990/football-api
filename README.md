@@ -1,5 +1,7 @@
 # Football API
 
+For the current MySQL/MariaDB database and migration setup, see [DATABASE.md](DATABASE.md). The PostgreSQL scaffold instructions below predate this setup.
+
 A PHP/Symfony backend scaffold for a football prediction application. The domain currently describes leagues, teams, games, and registered players, including fields for guesses and player points.
 
 **Status:** early development. There are no application controllers, API routes, mapped Doctrine entities, migrations, or automated tests yet. JWT and database configuration are present, but registration, login, game access, and rankings are not implemented. The development error-preview route is the only route currently registered.
