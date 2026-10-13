@@ -12,3 +12,6 @@ controllers:
 
 api_login_check:
     path: /login_check
+    methods: [POST]
+    defaults:
+        _format: json
