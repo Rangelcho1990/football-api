@@ -9,7 +9,7 @@ class League
     private int $id;
     private string $name;
     private string $leagueNameSlugged;
-    private string $log;
+    private string $logo;
     private int $leagueApiId;
 
     public function getId(): int
@@ -48,14 +48,14 @@ class League
         return $this;
     }
 
-    public function getLog(): string
+    public function getLogo(): string
     {
-        return $this->log;
+        return $this->logo;
     }
 
-    public function setLog(string $log): self
+    public function setLogo(string $logo): self
     {
-        $this->log = $log;
+        $this->logo = $logo;
 
         return $this;
     }
