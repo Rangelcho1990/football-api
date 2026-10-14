@@ -1,0 +1,45 @@
+{
+  "info": {
+    "name": "Player",
+    "description": null,
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Player",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "description": "",
+        "url": {
+          "raw": "{{URL}}api/users",
+          "protocol": "",
+          "host": [
+            "{{URL}}api"
+          ],
+          "path": [
+            "users"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"demo3\",\n  \"email\": \"demo3@example.com\",\n  \"password\": \"demo-password\",\n  \"avatar\": 1\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "URL",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}
