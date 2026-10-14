@@ -15,3 +15,8 @@ api_login_check:
     methods: [POST]
     defaults:
         _format: json
+
+api_user_create:
+    path: /api/users
+    methods: [POST]
+    controller: App\Controller\User\UserController

@@ -2,89 +2,121 @@
 
 ## Current state
 
-Football API is a Symfony 7.4 application with an initial football prediction domain model. The executable application currently consists of the framework bootstrap and configuration. Domain classes contain fields but almost no behavior; application use cases, HTTP controllers, and persistence mappings remain to be implemented.
+Football API is a Symfony 7.4 application organized into domain, application, infrastructure, and HTTP controller layers. User registration is implemented through an invokable controller, a Symfony request validator, an immutable application DTO, a use-case handler, and a repository interface with a Doctrine implementation. JWT login is configured. League, Team, Game, and User have XML ORM mappings and an initial MySQL/MariaDB migration.
 
-The directory layout suggests separation between domain, application, and infrastructure code. This is an intended organization, not an enforced dependency boundary: domain classes already import Doctrine collections, and `Player` implements Symfony security interfaces.
+This is an early implementation of a football prediction API. Predictions, scoring, rankings, football data imports, and game/league/team endpoints are not implemented. Configured firewall prefixes do not create endpoints.
 
-## Structure and runtime
+## Structure and dependency boundaries
 
 | Path | Current responsibility |
 | --- | --- |
-| `public/index.php` | HTTP front controller; loads Symfony Runtime and creates the kernel |
-| `bin/console` | CLI entry point for Symfony and bundle commands |
-| `src/Kernel.php` | Framework kernel using `MicroKernelTrait` |
-| `src/Domain/` | `Game`, `League`, `Player`, and `Team` classes |
-| `src/Controller/` | Empty location for HTTP controllers |
-| `src/Application/` | Empty location for use cases |
-| `src/Infrastructure/` | Empty location for infrastructure integrations |
-| `src/Entity/` | Empty directory currently configured as Doctrine's entity mapping source |
-| `src/Repository/` | Empty location for repositories |
-| `config/packages/` | Framework, Doctrine, security, JWT, cache, and routing configuration |
-| `config/routes.yaml` | Imports controller attribute routes |
-| `config/services.yaml` | Autowiring and autoconfiguration for the `App` namespace |
-| `compose.yaml`, `compose.override.yaml` | PostgreSQL service, persistent volume, and dynamic host-port publication |
-| `var/` | Generated runtime files such as cache and logs; ignored by Git |
+| `public/index.php`, `bin/console`, `src/Kernel.php` | Symfony HTTP/CLI bootstrap and kernel |
+| `src/Controller/User/UserController.php` | Decode registration JSON, call the request validator and handler, map malformed JSON to 400, validation failures to 422, and duplicate-user failures to 409 |
+| `src/Application/CreateUserHandler.php` | Construct a User, hash its password, activate it, and persist it through the repository contract |
+| `src/Controller/User/Validation/UserRequestValidator.php` | Validate and normalize HTTP input using Symfony constraints, then construct the application DTO |
+| `src/Application/DTO/UserRequestDTO.php` | Framework-independent `final readonly` input DTO containing username, email, password, and integer avatar |
+| `src/Domain/User/Exception/` | Business exceptions; currently only `UserAlreadyExistsException` |
+| `src/Domain/User/UserRepositoryInterface.php` | User persistence contract, including documented duplicate-user failure |
+| `src/Domain/{User,League,Team,Game}/` | Domain models, currently primarily state and getters/setters |
+| `src/Infrastructure/Doctrine/UserRepository.php` | Doctrine implementation of the User repository |
+| `src/DataFixtures/AppFixtures.php` | Development League and User seed data |
+| `config/doctrine/` | External XML mappings for the domain models |
+| `migrations/` | Database schema migration and rollback |
+| `config/packages/`, `config/routes.yaml`, `config/services.yaml` | Framework, security, routes, service wiring, and repository alias |
+| `tests/`, `phpunit.dist.xml`, `phpstan.dist.neon` | Test bootstrap, request-validator and controller unit tests, and analysis configuration |
+| `compose.yaml`, `compose.override.yaml` | Legacy PostgreSQL service; incompatible with the current MySQL/MariaDB migration |
 
-Composer maps `App\` to `src/`. The HTTP entry point delegates request handling to the Symfony kernel, which loads routes, services, and security configuration. Once controllers exist, matched requests can pass through the configured firewall and access rules to their handlers. Today, no application route resolves to a handler; only the development error-preview route is registered.
+Composer maps `App\` to `src/`. The application handler depends on the domain repository interface; the service container aliases it to the Doctrine repository. ORM mappings are external, so domain entities do not need Doctrine mapping attributes.
+
+The HTTP boundary owns JSON decoding, input validation, and HTTP responses. The handler accepts a typed application DTO and coordinates registration through the domain repository contract. The DTO contains only data and has no Symfony dependencies. Business invariants should be enforced in domain entities and value objects regardless of the entry point; see [DDD.md](DDD.md).
+
+The boundaries remain pragmatic rather than strict DDD isolation: User implements Symfony security interfaces and the handler depends on Symfony's password hasher. Domain invariants are still limited; HTTP validation does not replace domain enforcement.
+
+Services are autowired and autoconfigured. Application DTOs are excluded from service discovery because their values come from requests rather than dependency injection. Currently `controller.service_arguments` is applied to all `App\` services. Scope that tag to controllers and review other non-service data classes for exclusion where appropriate.
+
+## Registration flow and API contract
+
+`POST /api/users` is explicitly mapped to `App\Controller\User\UserController`. Symfony calls its `__invoke(Request $request)` method.
+
+1. The controller reads JSON using `Request::toArray()`; invalid or non-array JSON returns HTTP 400 with a failure flag and message.
+2. `UserRequestValidator` trims string usernames and emails, then validates all fields using Symfony `Collection` and `Sequentially` constraints. Passwords are preserved unchanged.
+3. Missing fields, unexpected fields, incorrect types, and constraint violations throw `ValidationFailedException`. The controller returns HTTP 422 with `{"success":false,"errors":{"field":["message"]}}`.
+4. After validation, explicit scalar type guards support static analysis before constructing `UserRequestDTO`. A guard failure indicates an internal programming error and throws `LogicException`.
+5. `CreateUserHandler::handler(UserRequestDTO)` constructs User, assigns its fields, hashes the password, and sets active status to true.
+6. `UserRepositoryInterface::createUser()` delegates to Doctrine persist/flush.
+7. Success returns HTTP 200 with `{"success":true}`. `UserAlreadyExistsException` returns HTTP 409 with a failure flag and message.
+
+All four input fields are required. Username must be a nonblank string of at most 50 characters. Email must be a nonblank string of at most 100 characters and satisfy Symfony's email constraint. Password must be a nonblank string. Avatar must be a positive integer; numeric strings are rejected. Extra fields are rejected (`allowExtraFields: false`). No password-strength policy or avatar existence check is implemented.
+
+The DTO's scalar properties cannot be reassigned after construction. Validation occurs at the HTTP boundary; the DTO itself does not enforce business rules. Other entry points need appropriate input validation and domain enforcement. A shared JSON error response policy, HTTP 201, and a created-resource identifier remain possible improvements.
 
 ## Domain model
 
-| Class | Declared state and behavior |
+| Model | State and current behavior |
 | --- | --- |
-| `League` | `id`, `name`, `leagueNameSlugged`, `log`, `leagueApiId`; no methods. `log` is the literal field name in the source. |
-| `Team` | `id`, `name`, `logo`; no methods. |
-| `Game` | `id`, string `score`, home and away `Team` references, `gameTime`, `guesses`, and a `League` reference; no methods. |
-| `Player` | Registered application user with `id`, `username`, `password`, `email`, `createdAt`, `point`, `avatar`, `isActive`, and `guesses`. Implements Symfony user/password interfaces. |
+| User | Generated ID, username, password hash, email, creation timestamp, points, avatar, active flag; implements Symfony authentication interfaces |
+| League | Generated ID, name, slug, logo, external league API ID; getters/setters |
+| Team | Generated ID, name, logo; getters/setters |
+| Game | Generated ID, nullable string score, home/away teams, game time, league; getters/setters |
 
-`Game` references two teams and one league through PHP property types. Both `Game` and `Player` declare a Doctrine `ArrayCollection` for guesses, but there is no guess class, element type declaration, or collection initialization.
+User defaults to avatar 1, zero points, current immutable creation time, and inactive status. Registration overrides avatar and activates the account. `setUsername()` rejects only the empty string using `InvalidArgumentException`; other business invariants are largely absent. Constructors leave required properties uninitialized until setters or Doctrine hydration populate them.
 
-The `Player` constructor sets avatar to `1`, points to `0`, creation time to the current immutable timestamp, and active status to `false`. Its other typed properties remain uninitialized. `getPassword()` and `getUserIdentifier()` read those properties directly, so they cannot safely be called on a newly constructed player. No setters, factories, validation, prediction rules, or points calculations exist yet.
+There is no Guess/Prediction model or relationship. There are no scoring rules, prediction deadlines, ranking queries, or checks preventing a team from playing itself. Negative points and invalid domain field values are not prevented. External IDs exist on League, but no external provider integration exists.
 
-`leagueApiId` hints at an external league identifier; no external football provider or import integration is implemented.
+## Exceptions and HTTP boundaries
 
-## Persistence
+HTTP validation uses Symfony’s `ValidationFailedException` in the controller layer; it is not a domain exception. The controller maps its field violations to HTTP 422.
 
-Doctrine DBAL reads its connection from `DATABASE_URL`. Compose defaults to PostgreSQL 16 Alpine and persists database files in the `database_data` volume. The application runs outside Compose and connects through the published host port.
+Business exceptions belong beside their domain, for example `Domain/User/Exception/` and, when needed, `Domain/League/Exception/`. Only `UserAlreadyExistsException` exists today; League exceptions and a shared exception subscriber are proposed additions, not implemented features.
 
-Doctrine ORM uses attribute mapping for `App\Entity` in `src/Entity/`, with underscore naming and PostgreSQL identity generation. The existing classes live in `App\Domain`, have no ORM mapping attributes, and are outside the configured mapping namespace. Consequently, there are currently **no mapped entities or application tables defined by this code**.
+`UserAlreadyExistsException` extends PHP's `DomainException`, retains the previous technical exception, and contains no HTTP or Symfony dependencies. The repository contract declares it, the handler propagates it, and the controller maps it to 409. Other expected domain failures should receive specific types and explicit HTTP mappings at the presentation boundary.
 
-There are no repositories, migrations, fixtures, or Doctrine Migrations bundle. Before adding persistence, choose whether domain classes will be mapped directly or whether separate persistence entities will translate to and from domain objects. Update mapping configuration and add a migration workflow to match that decision.
+**Current defect:** the Doctrine repository catches every `Exception` and converts it to `UserAlreadyExistsException`. Database connection failures and unrelated persistence failures can therefore appear as duplicate-user conflicts. Catch `Doctrine\DBAL\Exception\UniqueConstraintViolationException` and translate only constraints that represent duplicate user details; let unexpected failures propagate to logging and a generic server-error response.
 
-The test environment appends `_test` and an optional `TEST_TOKEN` to the database name. Production configures Doctrine query/result cache pools backed by Symfony cache. The default application cache uses the filesystem.
+## Persistence and development data
 
-## Authentication and access rules
+Doctrine DBAL reads `DATABASE_URL`. ORM loads XML from `config/doctrine` for `App\Domain`, directly mapping the four domain models. The initial migration targets MySQL/MariaDB and creates `league`, `team`, `game`, and `user`; Doctrine also maintains migration history. See [DATABASE.md](DATABASE.md) for database setup and migration commands.
 
-Security configuration is preparatory. The `users` provider tries to load `App\Domain\Player\Player` by `username` through Doctrine, but that class is not mapped. Password hashing specifies bcrypt for `Player` and the automatic hasher for other password-authenticated user implementations.
+User username and email have separate unique constraints. Game requires league and home/away team foreign keys, restricts deletion of referenced records, and has a unique home-team/away-team/game-time combination. Score is nullable before a match ends. Tables use utf8mb4. IDs use database identity generation.
 
-Firewalls are checked in order:
+Fixtures create a Premier League record and an active demo user with a hashed password. They do not create teams or games. Fixture loading purges data and is intended for development.
 
-| Matching prefix | Configured behavior |
+Tests append `_test` and optional `TEST_TOKEN` to the database name. Production configures Doctrine cache pools. The supplied Compose database remains PostgreSQL; it must be aligned with MySQL/MariaDB or the migrations must be deliberately ported before using it for this schema.
+
+## Authentication and authorization
+
+The Doctrine security provider loads User by username. User passwords use bcrypt; the generic password-authenticated interface has the automatic hasher configured. `POST /login_check` is registered without a controller because the JSON-login firewall handles authentication and Lexik JWT success/failure responses.
+
+| Prefix | Current security behavior |
 | --- | --- |
-| `/_profiler`, `/_wdt`, `/assets/`, `/build/` | Development firewall bypasses security |
-| `/login` | Stateless JSON login with `/login_check` as the check path and Lexik JWT success/failure handlers |
-| `/api/players` | Stateless public firewall |
-| `/api/games` | Stateless public firewall |
-| `/api/top-players` | Stateless public firewall |
-| Remaining `/api` paths | Stateless JWT authentication using the `users` provider |
+| Development profiler/assets paths | Security bypass |
+| `/login` | Stateless JSON login; check path `/login_check` |
+| `/api/users` | Stateless public firewall and public access rule |
+| `/api/games` | Stateless public firewall and public access rule; no route implemented |
+| `/api/top-players` | Stateless public firewall and public access rule; no route implemented |
+| Other `/api` paths | Stateless JWT firewall and full-authentication requirement |
 
-Access rules allow public access to the login, player, ranking, and game prefixes, then require full authentication for remaining `/api` paths. These are regular-expression prefixes without HTTP-method restrictions. Any future route beneath a public prefix inherits that broad public policy unless the configuration changes. Those public firewalls also take precedence over the general JWT firewall.
+Public rules are broad regex prefixes without method restrictions. Future user-management routes beneath `/api/users` would inherit public access and bypass the JWT firewall. Restrict public registration to the intended method/path before adding protected user endpoints.
 
-**Firewall patterns do not create endpoints.** There is no `/login_check` route, registration controller, protected API handler, or token refresh/logout workflow. Authentication additionally requires mapped users, initialized credentials, and generated signing keys.
+User roles currently contain `PUBLIC_ACCESS`, rather than a conventional application role such as `ROLE_USER`. Active status is not enforced through a custom user checker. There is no refresh-token, logout/revocation, or account verification workflow. JWT operation requires correctly configured readable signing keys and a matching passphrase; configuration alone is not end-to-end verification.
 
-`Player::getRoles()` currently returns `PUBLIC_ACCESS`. That value is used as an access-control attribute in the configuration; the model does not yet establish a conventional application role scheme. The `isActive` field is not enforced by a custom user checker or application logic.
+## Verification and remaining work
 
-## Configuration and operational boundaries
+Review checks on 2026-10-14:
 
-Symfony Dotenv loads environment defaults; use ignored local dotenv files or deployment environment variables for machine-specific values and secrets. JWT PEM files, dependencies, and runtime output are ignored by Git. See [README.md](README.md) for setup commands and environment variables.
+- Container lint passed.
+- Router inspection confirmed `POST /api/users`, `POST /login_check`, and the development error-preview route.
+- Doctrine mapping validation passed with `--skip-sync`; live database synchronization was not checked.
+- PHPStan level 10 passes using `--debug`; the four DTO constructor type errors are resolved through validation and explicit type narrowing.
+- PHPUnit passes: 3 tests and 61 assertions cover valid DTO construction, missing/invalid fields, and controller HTTP 422 responses without password hashing or persistence. These are unit tests, not live HTTP/database integration tests.
 
-The repository does not provide an application Docker image, production web-server configuration, deployment pipeline, API specification, queue, external data client, or automated test suite. Framework sessions are enabled globally even though the configured application firewalls are stateless.
+Priorities:
 
-## Suggested implementation sequence
+1. Extend registration coverage for unexpected fields, normalization, password preservation, and malformed JSON responses.
+2. Narrow repository exception translation to duplicate-user constraint failures.
+3. Scope controller service tags and review public security prefixes, roles, and inactive-user policy.
+4. Add successful registration, duplicate-user, login, and JWT access tests, including HTTP and repository/database integration coverage.
+5. Strengthen domain construction and invariants, then implement predictions, scoring, rankings, and football endpoints as needed.
+6. Align Compose and README setup instructions with the actual database and implemented features. README still contains obsolete claims that controllers, routes, mappings, migrations, and development tools are absent.
 
-1. Define domain construction, validation, guess relationships, and scoring rules; initialize required properties and collections.
-2. Decide on ORM mapping boundaries, implement repositories, and add migrations.
-3. Complete user creation, password handling, account-status enforcement, roles, and login routing.
-4. Implement HTTP routes and application use cases, reviewing access policy for every method and path.
-5. Add domain tests and database/authentication integration tests, then document actual endpoint contracts and deployment behavior.
-
-These are proposed next steps, not features currently available in the project.
+No API specification, CI pipeline, application Docker image, production web-server/deployment configuration, queue, or external football data client is present. Framework sessions are enabled globally although application firewalls are stateless. These are follow-up decisions, not functionality supplied by the current implementation.
