@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\User\Validation;
 
-use App\Application\DTO\UserRequestDTO;
+use App\Application\User\DTO\UserRequestDTO;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;

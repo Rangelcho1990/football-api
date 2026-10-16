@@ -12,9 +12,9 @@ This is an early implementation of a football prediction API. Predictions, scori
 | --- | --- |
 | `public/index.php`, `bin/console`, `src/Kernel.php` | Symfony HTTP/CLI bootstrap and kernel |
 | `src/Controller/User/UserController.php` | Decode registration JSON, call the request validator and handler, map malformed JSON to 400, validation failures to 422, and duplicate-user failures to 409 |
-| `src/Application/CreateUserHandler.php` | Construct a User, hash its password, activate it, and persist it through the repository contract |
+| `src/Application/User/CreateUserHandler.php` | Construct a User, hash its password, activate it, and persist it through the repository contract |
 | `src/Controller/User/Validation/UserRequestValidator.php` | Validate and normalize HTTP input using Symfony constraints, then construct the application DTO |
-| `src/Application/DTO/UserRequestDTO.php` | Framework-independent `final readonly` input DTO containing username, email, password, and integer avatar |
+| `src/Application/User/DTO/UserRequestDTO.php` | Framework-independent `final readonly` input DTO containing username, email, password, and integer avatar |
 | `src/Domain/User/Exception/` | Business exceptions; currently only `UserAlreadyExistsException` |
 | `src/Domain/User/UserRepositoryInterface.php` | User persistence contract, including documented duplicate-user failure |
 | `src/Domain/{User,League,Team,Game}/` | Domain models, currently primarily state and getters/setters |
@@ -28,7 +28,7 @@ This is an early implementation of a football prediction API. Predictions, scori
 
 Composer maps `App\` to `src/`. The application handler depends on the domain repository interface; the service container aliases it to the Doctrine repository. ORM mappings are external, so domain entities do not need Doctrine mapping attributes.
 
-The HTTP boundary owns JSON decoding, input validation, and HTTP responses. The handler accepts a typed application DTO and coordinates registration through the domain repository contract. The DTO contains only data and has no Symfony dependencies. Business invariants should be enforced in domain entities and value objects regardless of the entry point; see [DDD.md](DDD.md).
+The HTTP boundary owns JSON decoding, input validation, and HTTP responses. The handler accepts a typed application DTO and coordinates registration through the domain repository contract. The DTO contains only data and has no Symfony dependencies. Business invariants should be enforced in domain entities and value objects regardless of the entry point.
 
 The boundaries remain pragmatic rather than strict DDD isolation: User implements Symfony security interfaces and the handler depends on Symfony's password hasher. Domain invariants are still limited; HTTP validation does not replace domain enforcement.
 

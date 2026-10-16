@@ -19,7 +19,7 @@ services:
     App\:
         resource: '../src/'
         exclude:
-            - '../src/Application/DTO/'
+            - '../src/Application/User/DTO/'
             - '../src/Controller/User/Request/'
         tags: ['controller.service_arguments']
 

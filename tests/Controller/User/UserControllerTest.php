@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Controller\User;
 
-use App\Application\CreateUserHandler;
+use App\Application\User\CreateUserHandler;
 use App\Controller\User\UserController;
 use App\Controller\User\Validation\UserRequestValidator;
 use App\Domain\User\UserRepositoryInterface;

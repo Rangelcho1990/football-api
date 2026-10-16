@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Application;
+namespace App\Application\User;
 
-use App\Application\DTO\UserRequestDTO;
+use App\Application\User\DTO\UserRequestDTO;
 use App\Domain\User\Exception\UserAlreadyExistsException;
 use App\Domain\User\User;
 use App\Domain\User\UserRepositoryInterface;

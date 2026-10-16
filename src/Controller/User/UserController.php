@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\User;
 
-use App\Application\CreateUserHandler;
+use App\Application\User\CreateUserHandler;
 use App\Controller\User\Validation\UserRequestValidator;
 use App\Domain\User\Exception\UserAlreadyExistsException;
 use Symfony\Component\HttpFoundation\Exception\JsonException;

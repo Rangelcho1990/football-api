@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\DTO;
+namespace App\Application\User\DTO;
 
 final readonly class UserRequestDTO
 {
