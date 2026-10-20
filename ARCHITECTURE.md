@@ -4,7 +4,7 @@
 
 Football API is a Symfony 7.4 application organized into domain, application, infrastructure, and HTTP controller layers. User registration is implemented through an invokable controller, a Symfony request validator, an immutable application DTO, a use-case handler, and a repository interface with a Doctrine implementation. JWT login is configured. League, Team, Game, and User have XML ORM mappings and an initial MySQL/MariaDB migration.
 
-This is an early implementation of a football prediction API. Predictions, scoring, rankings, football data imports, and game/league/team endpoints are not implemented. Configured firewall prefixes do not create endpoints.
+This is an early implementation of a football prediction API. League imports from a local Rapid staging table are implemented. Predictions, scoring, rankings, and game/league/team endpoints are not implemented. Configured firewall prefixes do not create endpoints.
 
 ## Structure and dependency boundaries
 
@@ -50,24 +50,43 @@ All four input fields are required. Username must be a nonblank string of at mos
 
 The DTO's scalar properties cannot be reassigned after construction. Validation occurs at the HTTP boundary; the DTO itself does not enforce business rules. Other entry points need appropriate input validation and domain enforcement. A shared JSON error response policy, HTTP 201, and a created-resource identifier remain possible improvements.
 
+## League import flow
+
+```text
+FetchLeaguesCommand -> LeagueSourceRegistry -> LeagueSourceInterface
+                                               ^ RapidLeagueSource
+FetchLeaguesCommand -> ImportLeaguesHandler -> LeagueRepositoryInterface
+                                               ^ Doctrine LeagueRepository
+```
+
+`php bin/console app:import-leagues rapid` requires a positional source argument. The registry resolves implementations by the `source` attribute of the `app.league_source` service tag. Definitions live in `config/services/league_sources.yaml`, imported by `config/services.yaml`; explicitly configured sources and the registry are excluded from broad service discovery to preserve their definitions. Application DTOs are also excluded.
+
+`LeagueSourceInterface::fetchLeagues()` returns an iterable of `SourceLeagueDTO`. `RapidLeagueSource` uses Doctrine DBAL to select `data` and `country_id` from `__rapid_leagues`. It decodes each JSON array, validates league fields, and maps entries into DTOs. It generates lowercase slugs with `AsciiSlugger`, sets status to `1`, and uses the current date/time for the update timestamp. It ignores JSON country details and seasons; country ID comes from the staging row. Missing/null/blank country IDs and invalid ID types are rejected. Query results are freed even when reading or mapping fails.
+
+The command materializes DTOs before calling `ImportLeaguesHandler::handler()`. Unknown sources return an invalid-command result; database, JSON, and payload failures during fetching return failure with a message. The handler checks `LeagueRepositoryInterface::findByApiId()` first and skips existing records. For new leagues it rejects blank logos with `LeagueMissingLogoException`, maps every DTO field into a League, and calls `createLeague()` to persist and flush it. Handler exceptions propagate through Symfony Console. The final count is fetched rows, not inserted rows.
+
+Domain persistence uses XML mappings, including `league_type`, `country_id`, `status`, and `__lastUpdate`. Inserts flush individually without a transaction covering the entire import; earlier inserts can remain after a later failure. Duplicate detection currently uses API ID alone and does not guarantee uniqueness under concurrent imports. Before enabling providers with overlapping IDs, introduce the source/external-ID mapping described in [TODO.md](TODO.md).
+
+`LeagueRepository` currently wraps all persistence exceptions in `LeagueAlreadyExistsException`; narrow this to relevant unique-constraint failures. Unit tests cover source mapping/resource cleanup and handler duplicate skipping, logo rejection, and entity construction. Live import/database integration is not yet verified.
+
 ## Domain model
 
 | Model | State and current behavior |
 | --- | --- |
 | User | Generated ID, username, password hash, email, creation timestamp, points, avatar, active flag; implements Symfony authentication interfaces |
-| League | Generated ID, name, slug, logo, external league API ID; getters/setters |
+| League | Generated ID, name, slug, logo, type, external API ID, country ID, status, last-update timestamp; getters/setters |
 | Team | Generated ID, name, logo; getters/setters |
 | Game | Generated ID, nullable string score, home/away teams, game time, league; getters/setters |
 
 User defaults to avatar 1, zero points, current immutable creation time, and inactive status. Registration overrides avatar and activates the account. `setUsername()` rejects only the empty string using `InvalidArgumentException`; other business invariants are largely absent. Constructors leave required properties uninitialized until setters or Doctrine hydration populate them.
 
-There is no Guess/Prediction model or relationship. There are no scoring rules, prediction deadlines, ranking queries, or checks preventing a team from playing itself. Negative points and invalid domain field values are not prevented. External IDs exist on League, but no external provider integration exists.
+There is no Guess/Prediction model or relationship. There are no scoring rules, prediction deadlines, ranking queries, or checks preventing a team from playing itself. Negative points and invalid domain field values are not prevented. League imports read provider data from a local staging table; there is no external HTTP client.
 
 ## Exceptions and HTTP boundaries
 
 HTTP validation uses Symfony’s `ValidationFailedException` in the controller layer; it is not a domain exception. The controller maps its field violations to HTTP 422.
 
-Business exceptions belong beside their domain, for example `Domain/User/Exception/` and, when needed, `Domain/League/Exception/`. Only `UserAlreadyExistsException` exists today; League exceptions and a shared exception subscriber are proposed additions, not implemented features.
+Business exceptions belong beside their domain, for example `Domain/User/Exception/` and, when needed, `Domain/League/Exception/`. `UserAlreadyExistsException`, `LeagueAlreadyExistsException`, and `LeagueMissingLogoException` are implemented. A shared exception subscriber is not implemented.
 
 `UserAlreadyExistsException` extends PHP's `DomainException`, retains the previous technical exception, and contains no HTTP or Symfony dependencies. The repository contract declares it, the handler propagates it, and the controller maps it to 409. Other expected domain failures should receive specific types and explicit HTTP mappings at the presentation boundary.
 
@@ -79,7 +98,7 @@ Doctrine DBAL reads `DATABASE_URL`. ORM loads XML from `config/doctrine` for `Ap
 
 User username and email have separate unique constraints. Game requires league and home/away team foreign keys, restricts deletion of referenced records, and has a unique home-team/away-team/game-time combination. Score is nullable before a match ends. Tables use utf8mb4. IDs use database identity generation.
 
-Fixtures create a Premier League record and an active demo user with a hashed password. They do not create teams or games. Fixture loading purges data and is intended for development.
+Fixtures attempt to create a Premier League record and an active demo user with a hashed password. The League fixture does not yet initialize the new required type, country, status, and timestamp fields and needs updating. Fixture loading purges data and is intended for development.
 
 Tests append `_test` and optional `TEST_TOKEN` to the database name. Production configures Doctrine cache pools. The supplied Compose database remains PostgreSQL; it must be aligned with MySQL/MariaDB or the migrations must be deliberately ported before using it for this schema.
 
@@ -102,7 +121,7 @@ User roles currently contain `PUBLIC_ACCESS`, rather than a conventional applica
 
 ## Verification and remaining work
 
-Review checks on 2026-10-14:
+Historical registration checks on 2026-10-14 (the test totals below predate league import tests):
 
 - Container lint passed.
 - Router inspection confirmed `POST /api/users`, `POST /login_check`, and the development error-preview route.
@@ -117,6 +136,6 @@ Priorities:
 3. Scope controller service tags and review public security prefixes, roles, and inactive-user policy.
 4. Add successful registration, duplicate-user, login, and JWT access tests, including HTTP and repository/database integration coverage.
 5. Strengthen domain construction and invariants, then implement predictions, scoring, rankings, and football endpoints as needed.
-6. Align Compose and README setup instructions with the actual database and implemented features. README still contains obsolete claims that controllers, routes, mappings, migrations, and development tools are absent.
+6. Align the legacy Compose database with MySQL/MariaDB, update League fixtures, and keep schema documentation synchronized.
 
 No API specification, CI pipeline, application Docker image, production web-server/deployment configuration, queue, or external football data client is present. Framework sessions are enabled globally although application firewalls are stateless. These are follow-up decisions, not functionality supplied by the current implementation.

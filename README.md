@@ -1,111 +1,105 @@
 # Football API
 
-For the current MySQL/MariaDB database and migration setup, see [DATABASE.md](DATABASE.md). The PostgreSQL scaffold instructions below predate this setup.
+A PHP/Symfony backend for a football prediction application, organized into domain, application, infrastructure, and HTTP controller layers.
 
-A PHP/Symfony backend scaffold for a football prediction application. The domain currently describes leagues, teams, games, and registered players, including fields for guesses and player points.
+User registration and league imports are implemented. JWT login is configured. Predictions, scoring, rankings, and game/league/team API endpoints remain future work. See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details and limitations.
 
-**Status:** early development. There are no application controllers, API routes, mapped Doctrine entities, migrations, or automated tests yet. JWT and database configuration are present, but registration, login, game access, and rankings are not implemented. The development error-preview route is the only route currently registered.
+## Requirements
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the code structure, domain model, security configuration, and implementation gaps.
+- PHP compatible with the locked dependencies, Composer 2, and required extensions (`composer check-platform-reqs`). The project declares PHP >=8.2; individual dependencies can require a newer runtime.
+- Symfony 7.4, Doctrine ORM 3.7, and LexikJWTAuthenticationBundle 3.2.
+- MySQL/MariaDB and PHP's `pdo_mysql` extension.
 
-## Stack and requirements
-
-- PHP 8.2 or newer, Composer 2, and the PHP extensions required by the locked dependencies (`composer check-platform-reqs`).
-- Symfony 7.4, Doctrine ORM 3.7, and LexikJWTAuthenticationBundle 3.2 (dependency constraints in `composer.json`).
-- PostgreSQL 16 by default in Docker Compose. PHP needs `pdo_pgsql` to connect to PostgreSQL; Composer's platform check alone does not verify this database driver.
-- Docker with Compose for the supplied database service, or an independently provisioned PostgreSQL server.
-
-Compose runs only PostgreSQL. Run PHP and Composer on the host; no application container is supplied.
+The supplied Docker Compose service is a legacy PostgreSQL setup and does not match the current MySQL/MariaDB migration.
 
 ## Local setup
 
-Run commands from the project root.
+Run commands from the project root:
 
-1. Install dependencies:
+```bash
+composer install
+composer check-platform-reqs
+```
 
-   ```bash
-   composer install
-   composer check-platform-reqs
-   ```
+Configure `.env.local` with your database connection, application secret, and JWT settings:
 
-2. Start the database and discover its host port:
+```dotenv
+APP_ENV=dev
+APP_SECRET=replace_with_a_random_secret
+DEFAULT_URI=http://127.0.0.1:8000
+DATABASE_URL="mysql://USER:URL_ENCODED_PASSWORD@127.0.0.1:3306/football-api?serverVersion=10.11.14-MariaDB&charset=utf8mb4"
+JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
+JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
+JWT_PASSPHRASE=replace_with_a_random_passphrase
+```
 
-   ```bash
-   docker compose up -d database
-   docker compose port database 5432
-   ```
+Use the actual database server version and URL-encode the password. Generate secrets with `php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'`. Keep `.env.local`, private keys, and passphrases out of version control.
 
-   The Compose override publishes container port 5432 on a dynamically assigned host port. Use the reported port in `DATABASE_URL`. The database name, user, and password come from `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` in Compose; their local defaults are `app`, `app`, and `!ChangeMe!`. Compose creates the database on first initialization and stores it in the `database_data` volume.
+Create the database and apply migrations:
 
-3. Create `.env.local` with local overrides. Replace all placeholders below before running database or JWT commands:
+```bash
+php bin/console doctrine:database:create --if-not-exists
+php bin/console doctrine:migrations:migrate
+```
 
-   ```dotenv
-   APP_ENV=dev
-   APP_SECRET=replace_with_a_random_secret
-   DEFAULT_URI=http://127.0.0.1:8000
-   DATABASE_URL="postgresql://app:URL_ENCODED_PASSWORD@127.0.0.1:HOST_PORT/app?serverVersion=16&charset=utf8"
-   JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
-   JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
-   JWT_PASSPHRASE=replace_with_a_random_passphrase
-   ```
+See [DATABASE.md](DATABASE.md) for database administration details. Existing databases need migrations for subsequent schema changes; editing an already executed migration does not update their tables.
 
-   Generate separate random values with `php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'`. URL-encode the database password in the connection URL and match `serverVersion` to your PostgreSQL version. `.env.local` is ignored by Git. Symfony reads the committed `.env` and environment-specific files as defaults; real environment variables take precedence over dotenv files.
+Generate JWT keys after setting the passphrase, then start a development server:
 
-4. Generate a JWT passphrase, then the signing keys:
+```bash
+php bin/console lexik:jwt:generate-keypair --skip-if-exists
+chmod 600 config/jwt/private.pem
+php -S 127.0.0.1:8000 -t public public/index.php
+```
 
-   ```bash
-   openssl rand -hex 32
-   ```
+Existing keys require their original passphrase. Registration is available at `POST /api/users`; JWT JSON login uses `POST /login_check`.
 
-   Copy the generated value into `JWT_PASSPHRASE` in `.env.local` before generating the keys. This passphrase encrypts the private key and is required to unlock it; keep it unchanged when reusing an existing key pair.
+## Import leagues
 
-   ```bash
-   php bin/console lexik:jwt:generate-keypair --skip-if-exists
-   chmod 600 config/jwt/private.pem
-   ```
+```bash
+php bin/console app:import-leagues rapid
+```
 
-   The command creates `config/jwt/private.pem` and `config/jwt/public.pem` at the paths configured above, creating the directory if needed. `--skip-if-exists` preserves existing keys; it does not update their passphrase. The PHP process must be able to read the private key.
+`source` is a required positional argument. Currently `rapid` reads the local `__rapid_leagues` table; it does not call the Rapid API. Provision and populate that staging table separately: the initial migration does not create it.
 
-   Never commit the private key or the passphrase to GitHub. `.env.local` and PEM files under `config/jwt/` are ignored by Git. The public key is not secret, but is kept out of Git with the other environment-specific keys. Use separate keys and passphrases for development and production.
+Each staging row must provide:
 
-   Generating keys prepares authentication infrastructure; it does not create a working login endpoint.
+- `country_id`: a nonblank integer or digit string used for every league in that row.
+- `data`: a JSON array whose entries contain a `league` object with integer `id` and string `name`, `logo`, and `type` fields.
 
-5. Start a local development server:
+Example `data` value:
 
-   ```bash
-   php -S 127.0.0.1:8000 -t public public/index.php
-   ```
+```json
+[{"league":{"id":569,"name":"Premier League","type":"League","logo":"https://media.api-sports.io/football/leagues/569.png"}}]
+```
 
-   This server is for local development. Requests to `/` or the planned API paths currently return 404 because no application routes exist. There is no database schema to install yet, and no migration command is supplied by this project.
+The source generates a lowercase slug, sets status to `1`, and assigns the current date/time. Country details and seasons inside the JSON are ignored; the country ID comes from the table column.
 
-## Available checks
+The handler skips existing API IDs, rejects blank logos for new leagues, and persists each new league. Existing leagues are not updated. The success message reports the fetched count, including skipped duplicates. Imports flush each inserted league separately, so a later failure can leave earlier inserts committed.
+
+Source registration lives in [config/services/league_sources.yaml](config/services/league_sources.yaml), imported by `config/services.yaml`. Add another `LeagueSourceInterface` implementation and register it with the `app.league_source` tag and a distinct `source` value.
+
+## Checks
 
 ```bash
 composer validate --no-check-publish
 composer check-platform-reqs
 php bin/console lint:yaml config
 php bin/console lint:container
-php bin/console debug:router
-php bin/console doctrine:mapping:info
+php bin/console doctrine:schema:validate --skip-sync
+vendor/bin/phpunit
+composer phpstan
 ```
 
-The mapping command currently reports no mapped entities. There is no PHPUnit dependency, test suite, static-analysis configuration, or CI workflow in the checkout. These checks validate configuration and dependency compatibility, not end-to-end application behavior.
+Run `php bin/console doctrine:schema:validate` separately to check synchronization with a live database. Unit tests cover registration validation and league source/handler behavior; they do not establish live database integration.
 
-## Configuration and development
+The development fixtures have not yet been updated to initialize all required League fields. Update them before loading fixtures against the expanded schema.
 
-| Setting | Purpose |
-| --- | --- |
-| `APP_ENV` | Symfony environment, such as `dev`, `test`, or `prod` |
-| `APP_SECRET` | Framework secret |
-| `DEFAULT_URI` | Base URI used when generating URLs outside HTTP requests |
-| `DATABASE_URL` | Doctrine database connection and server version |
-| `JWT_SECRET_KEY`, `JWT_PUBLIC_KEY` | JWT private/public key paths |
-| `JWT_PASSPHRASE` | Private-key passphrase |
-| `APP_SHARE_DIR` | Default shared directory setting in `.env`; no application code currently uses it |
+## Documentation
 
-Place HTTP handlers in `src/Controller/`. Route attributes are imported through `config/routes.yaml`, and application services are autowired through `config/services.yaml`. Review the persistence and security gaps in [ARCHITECTURE.md](ARCHITECTURE.md) before adding endpoints.
-
-Stop the local database with `docker compose stop database`. Its named volume retains data.
+- [ARCHITECTURE.md](ARCHITECTURE.md): boundaries, flows, and remaining work.
+- [DATABASE.md](DATABASE.md): database setup and migration commands.
+- [TODO.md](TODO.md): proposed external-source ID mapping table.
 
 ## License
 

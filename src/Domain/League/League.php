@@ -10,7 +10,11 @@ class League
     private string $name;
     private string $leagueNameSlugged;
     private string $logo;
+    private string $leagueType;
     private int $leagueApiId;
+    private int $countryId;
+    private int $status;
+    private \DateTime $lastUpdated;
 
     public function getId(): int
     {
@@ -60,6 +64,18 @@ class League
         return $this;
     }
 
+    public function getLeagueType(): string
+    {
+        return $this->leagueType;
+    }
+
+    public function setLeagueType(string $leagueType): self
+    {
+        $this->leagueType = $leagueType;
+
+        return $this;
+    }
+
     public function getLeagueApiId(): int
     {
         return $this->leagueApiId;
@@ -68,6 +84,42 @@ class League
     public function setLeagueApiId(int $leagueApiId): self
     {
         $this->leagueApiId = $leagueApiId;
+
+        return $this;
+    }
+
+    public function getCountryId(): int
+    {
+        return $this->countryId;
+    }
+
+    public function setCountryId(int $countryId): self
+    {
+        $this->countryId = $countryId;
+
+        return $this;
+    }
+
+    public function getStatus(): int
+    {
+        return $this->status;
+    }
+
+    public function setStatus(int $status): self
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function getLastUpdated(): \DateTime
+    {
+        return $this->lastUpdated;
+    }
+
+    public function setLastUpdated(\DateTime $lastUpdated): self
+    {
+        $this->lastUpdated = $lastUpdated;
 
         return $this;
     }

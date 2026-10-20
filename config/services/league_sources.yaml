@@ -1,0 +1,14 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Application\League\LeagueSourceInterface: '@App\Infrastructure\LeagueSource\RapidLeagueSource'
+
+    App\Application\League\LeagueSourceRegistry:
+        arguments:
+            $sources: !tagged_iterator { tag: 'app.league_source', index_by: 'source' }
+
+    App\Infrastructure\LeagueSource\RapidLeagueSource:
+        tags:
+            - { name: 'app.league_source', source: 'rapid' }

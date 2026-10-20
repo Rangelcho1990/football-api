@@ -6,6 +6,9 @@
 
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+imports:
+    - { resource: 'services/league_sources.yaml' }
+
 parameters:
 
 services:
@@ -19,8 +22,11 @@ services:
     App\:
         resource: '../src/'
         exclude:
+            - '../src/Application/League/DTO/'
+            - '../src/Application/League/LeagueSourceRegistry.php'
             - '../src/Application/User/DTO/'
             - '../src/Controller/User/Request/'
+            - '../src/Infrastructure/LeagueSource/'
         tags: ['controller.service_arguments']
 
     # add more service definitions when explicit configuration is needed
