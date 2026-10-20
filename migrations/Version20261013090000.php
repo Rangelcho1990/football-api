@@ -24,10 +24,56 @@ final class Version20261013090000 extends AbstractMigration
     {
         $this->abortIf(!$this->connection->getDatabasePlatform() instanceof AbstractMySQLPlatform, 'This migration requires MySQL or MariaDB.');
 
-        $this->addSql('CREATE TABLE league (name VARCHAR(50) NOT NULL, league_name_slugged VARCHAR(50) NOT NULL, logo VARCHAR(150) NOT NULL, league_api_id INT NOT NULL, id INT AUTO_INCREMENT NOT NULL, PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`');
-        $this->addSql('CREATE TABLE user (username VARCHAR(50) NOT NULL, password VARCHAR(500) NOT NULL, isActive TINYINT NOT NULL, point INT NOT NULL, email VARCHAR(100) NOT NULL, avatar INT NOT NULL, created_at DATETIME NOT NULL, id INT AUTO_INCREMENT NOT NULL, UNIQUE INDEX username (username), UNIQUE INDEX email (email), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`');
-        $this->addSql('CREATE TABLE game (game_time DATETIME NOT NULL, score VARCHAR(50) DEFAULT NULL, id INT AUTO_INCREMENT NOT NULL, league INT NOT NULL, home_team INT NOT NULL, away_team INT NOT NULL, UNIQUE INDEX gameIndex (home_team, away_team, game_time), INDEX IDX_232B318C3EB4C318 (league), INDEX IDX_232B318CE5C617D0 (home_team), INDEX IDX_232B318C558F2381 (away_team), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`');
-        $this->addSql('CREATE TABLE team (name VARCHAR(50) NOT NULL, logo VARCHAR(150) NOT NULL, id INT AUTO_INCREMENT NOT NULL, PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`');
+        $this->addSql('CREATE TABLE league (
+                id INT AUTO_INCREMENT NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                league_name_slugged VARCHAR(100) NOT NULL,
+                logo VARCHAR(150) NOT NULL,
+                league_type VARCHAR(50) NOT NULL,
+                league_api_id INT NOT NULL,
+                country_id INT NOT NULL,
+                status TINYINT DEFAULT 0 NOT NULL,
+                __lastUpdate DATETIME DEFAULT NULL,
+                INDEX idx_league_country_status (country_id, status),
+                INDEX idx_league_slug (league_name_slugged),
+                PRIMARY KEY (id))
+                DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`'
+        );
+        $this->addSql('CREATE TABLE user (
+                id INT AUTO_INCREMENT NOT NULL,
+                username VARCHAR(50) NOT NULL,
+                password VARCHAR(500) NOT NULL,
+                isActive TINYINT NOT NULL,
+                point INT NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                avatar INT NOT NULL,
+                created_at DATETIME NOT NULL,
+                UNIQUE INDEX username (username),
+                UNIQUE INDEX email (email),
+                PRIMARY KEY (id))
+                DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`'
+        );
+        $this->addSql('CREATE TABLE game (
+                game_time DATETIME NOT NULL,
+                score VARCHAR(50) DEFAULT NULL,
+                id INT AUTO_INCREMENT NOT NULL,
+                league INT NOT NULL,
+                home_team INT NOT NULL,
+                away_team INT NOT NULL,
+                UNIQUE INDEX gameIndex (home_team, away_team, game_time),
+                INDEX IDX_232B318C3EB4C318 (league),
+                INDEX IDX_232B318CE5C617D0 (home_team),
+                INDEX IDX_232B318C558F2381 (away_team),
+                PRIMARY KEY (id))
+                DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`'
+        );
+        $this->addSql('CREATE TABLE team (
+                id INT AUTO_INCREMENT NOT NULL,
+                name VARCHAR(50) NOT NULL,
+                logo VARCHAR(150) NOT NULL,
+                PRIMARY KEY (id))
+                DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci`'
+        );
         $this->addSql('ALTER TABLE game ADD CONSTRAINT FK_232B318C3EB4C318 FOREIGN KEY (league) REFERENCES league (id) ON DELETE RESTRICT');
         $this->addSql('ALTER TABLE game ADD CONSTRAINT FK_232B318CE5C617D0 FOREIGN KEY (home_team) REFERENCES team (id) ON DELETE RESTRICT');
         $this->addSql('ALTER TABLE game ADD CONSTRAINT FK_232B318C558F2381 FOREIGN KEY (away_team) REFERENCES team (id) ON DELETE RESTRICT');
