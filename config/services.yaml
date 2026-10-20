@@ -23,10 +23,9 @@ services:
         resource: '../src/'
         exclude:
             - '../src/Application/League/DTO/'
-            - '../src/Application/League/LeagueSourceRegistry.php'
             - '../src/Application/User/DTO/'
             - '../src/Controller/User/Request/'
-            - '../src/Infrastructure/LeagueSource/'
+            - '../src/Infrastructure/Services/LeagueSource/'
         tags: ['controller.service_arguments']
 
     # add more service definitions when explicit configuration is needed

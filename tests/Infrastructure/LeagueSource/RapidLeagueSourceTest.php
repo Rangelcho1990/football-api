@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Infrastructure\LeagueSource;
 
-use App\Infrastructure\LeagueSource\RapidLeagueSource;
+use App\Infrastructure\Services\LeagueSource\RapidLeagueSource;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Result;
 use PHPUnit\Framework\TestCase;

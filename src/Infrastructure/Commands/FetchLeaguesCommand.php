@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Commands;
 
 use App\Application\League\ImportLeaguesHandler;
-use App\Application\League\LeagueSourceRegistry;
+use App\Infrastructure\Services\LeagueSource\LeagueSourceRegistry;
 use Doctrine\DBAL\Exception as DatabaseException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
