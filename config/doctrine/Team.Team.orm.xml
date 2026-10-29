@@ -4,14 +4,32 @@
                   xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
                           https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
 
-    <entity name="App\Domain\Team\Team" table="team">
+    <entity name="App\Domain\Team\Team" table="team" repository-class="App\Infrastructure\Doctrine\TeamRepository">
+
+        <unique-constraints>
+            <unique-constraint name="uniq_team_api_id" columns="team_api_id" />
+        </unique-constraints>
 
         <id name="id" type="integer" column="id">
             <generator strategy="IDENTITY"/>
         </id>
 
         <field name="name" column="name" length="50" />
-        <field name="logo" column="logo" length="150" nullable="false" />
+        <field name="logo" column="logo" length="100" nullable="true" />
+        <field name="teamApiId" type="integer" column="team_api_id" nullable="false">
+            <options>
+                <option name="unsigned">true</option>
+            </options>
+        </field>
+        <field name="countryId" type="integer" column="country_id" nullable="false" />
+        <field name="founded" type="integer" column="founded" nullable="true" />
+        <field name="national" type="boolean" column="national" nullable="true" />
+        <field name="status" type="boolean" column="status" nullable="true">
+            <options>
+                <option name="default">1</option>
+            </options>
+        </field>
+        <field name="lastUpdated" type="datetime" column="__lastUpdate" nullable="true" />
 
     </entity>
 

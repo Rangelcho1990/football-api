@@ -24,7 +24,7 @@ Database creation is separate because migrations connect to an existing database
 The initial migration creates:
 
 - `league`: generated ID, name, slug, logo, external league API ID.
-- `team`: generated ID, name, logo.
+- `team`: generated ID, name, logo. Migration `Version20261029090000` makes the logo nullable with a 100-character limit and adds nullable `founded`, nullable boolean `national`, required unsigned unique `team_api_id`, required `country_id`, nullable `status` defaulting to `1`, and nullable `__lastUpdate`. Apply it to an empty team table or reconcile existing data first.
 - `game`: generated ID, game time, optional score, required league and home/away team foreign keys; unique home/away/time combination.
 - `user`: generated ID, unique username and email, password hash, active flag, points, avatar, creation time.
 

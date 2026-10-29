@@ -1,0 +1,14 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Application\Team\TeamSourceInterface: '@App\Infrastructure\Services\TeamSource\RapidTeamSource'
+
+    App\Infrastructure\Services\TeamSource\TeamSourceRegistry:
+        arguments:
+            $sources: !tagged_iterator { tag: 'app.team_source', index_by: 'source' }
+
+    App\Infrastructure\Services\TeamSource\RapidTeamSource:
+        tags:
+            - { name: 'app.team_source', source: 'rapid' }

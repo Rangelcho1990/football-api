@@ -2,7 +2,7 @@
 
 A PHP/Symfony backend for a football prediction application, organized into domain, application, infrastructure, and HTTP controller layers.
 
-User registration and league imports are implemented. JWT login is configured. Predictions, scoring, rankings, and game/league/team API endpoints remain future work. See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details and limitations.
+User registration and league/team imports are implemented. JWT login is configured. Predictions, scoring, rankings, and game/league/team API endpoints remain future work. See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation details and limitations.
 
 ## Requirements
 
@@ -79,6 +79,27 @@ The handler skips existing API IDs, rejects blank logos for new leagues, and per
 
 Source registration lives in [config/services/league_sources.yaml](config/services/league_sources.yaml), imported by `config/services.yaml`. Add another `LeagueSourceInterface` implementation and register it with the `app.league_source` tag and a distinct `source` value.
 
+## Import teams
+
+Apply the migrations before the first import:
+
+```bash
+php bin/console doctrine:migrations:migrate
+php bin/console app:import-teams rapid
+```
+
+`FetchTeamsCommand` follows the league flow with a separate `TeamSourceRegistry`, application `TeamSourceInterface`/DTO, `ImportTeamsHandler`, and domain repository contract implemented by Doctrine. Register additional team sources in [config/services/team_sources.yaml](config/services/team_sources.yaml) with the `app.team_source` tag and a distinct `source` value.
+
+The Rapid adapter reads `data` and `country_id` from the separately provisioned `__rapid_teams` staging table. Each row requires an integer or digit-string `country_id`. Each `data` value must be a JSON array containing a `team` object with an unsigned integer `id` and string `name`. Optional `logo`, `founded`, and `national` fields accept a string, integer, and boolean respectively, or null:
+
+```json
+[{"team":{"id":33,"name":"Manchester United","logo":"https://media.api-sports.io/football/teams/33.png","founded":1878,"national":false}}]
+```
+
+The staging row's country ID applies to every team in its JSON array; the JSON country name is ignored. The adapter sets status to `1` and the update timestamp to the current time. Venue and other provider fields are ignored. Malformed staging data fails before any teams are persisted. Existing API IDs are skipped without updates. The fetched count includes duplicates, and inserts flush individually as in the league import.
+
+Migration `Version20261029090000` adds founded year, national flag, required unsigned unique API ID, required country ID, nullable status (default `1`), and nullable `__lastUpdate`. It changes the logo to nullable `VARCHAR(100)`. Apply it to an empty team table or reconcile existing data first. Source IDs currently share one namespace, as with leagues; providers with overlapping IDs need a separate source/external-ID mapping before use.
+
 ## Checks
 
 ```bash
@@ -91,7 +112,7 @@ vendor/bin/phpunit
 composer phpstan
 ```
 
-Run `php bin/console doctrine:schema:validate` separately to check synchronization with a live database. Unit tests cover registration validation and league source/handler behavior; they do not establish live database integration.
+Run `php bin/console doctrine:schema:validate` separately to check synchronization with a live database. Unit tests cover registration validation, league/team source and handler behavior, and the team command. Local team-import verification is documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The development fixtures have not yet been updated to initialize all required League fields. Update them before loading fixtures against the expanded schema.
 

@@ -69,13 +69,23 @@ Domain persistence uses XML mappings, including `league_type`, `country_id`, `st
 
 `LeagueRepository` currently wraps all persistence exceptions in `LeagueAlreadyExistsException`; narrow this to relevant unique-constraint failures. Unit tests cover source mapping/resource cleanup and handler duplicate skipping, logo rejection, and entity construction. Live import/database integration is not yet verified.
 
+## Team import flow
+
+`FetchTeamsCommand` exposes `app:import-teams <source>` and mirrors the league import with its own `TeamSourceRegistry`, application `TeamSourceInterface` and `SourceTeamDTO`, `RapidTeamSource`, `ImportTeamsHandler`, and domain `TeamRepositoryInterface` with a Doctrine implementation. Tagged team sources are configured separately in `config/services/team_sources.yaml`.
+
+The Rapid adapter selects `data` and `country_id` from `__rapid_teams`, validates each JSON list entry's unsigned `team.id`, `team.name`, and optional nullable `team.logo`, `team.founded`, and `team.national`, and always frees the DBAL result. The staging row's country ID applies to every team in its payload. Status is initialized to `1` and the update timestamp to the current time. The command materializes DTOs before importing so fetching failures do not persist partially read payloads. The handler skips existing API IDs and persists each new team separately, including all metadata. Only unique-constraint failures are translated into `TeamAlreadyExistsException`; unrelated database failures propagate.
+
+Migration `Version20261029090000` adds founded year, national flag, required unsigned unique API ID, required country ID, nullable status defaulting to `1`, and nullable `__lastUpdate`; logo becomes nullable `VARCHAR(100)`. Existing data must be reconciled before applying the migration, or the team table must be empty. Duplicate checks currently use the API ID alone, so overlapping provider IDs require future source/external-ID mapping. The staging table is owned by the separate fetching project. Unit tests cover source validation and cleanup, metadata and nullable-field mapping, repeated team imports, source selection, and command failure behavior.
+
+Local verification on 2026-10-29 recreated the empty team table while restoring both game foreign keys, recorded the existing initial schema in migration history, and applied the revised team migration. The import populated 18,126 teams; all imported metadata matched staging, the Team ORM mapping matched the live table, and a second import left the count unchanged.
+
 ## Domain model
 
 | Model | State and current behavior |
 | --- | --- |
 | User | Generated ID, username, password hash, email, creation timestamp, points, avatar, active flag; implements Symfony authentication interfaces |
 | League | Generated ID, name, slug, logo, type, external API ID, country ID, status, last-update timestamp; getters/setters |
-| Team | Generated ID, name, logo; getters/setters |
+| Team | Generated ID, name, nullable logo/founded/national, required unsigned unique API ID and country ID, nullable status and last-update timestamp; getters/setters |
 | Game | Generated ID, nullable string score, home/away teams, game time, league; getters/setters |
 
 User defaults to avatar 1, zero points, current immutable creation time, and inactive status. Registration overrides avatar and activates the account. `setUsername()` rejects only the empty string using `InvalidArgumentException`; other business invariants are largely absent. Constructors leave required properties uninitialized until setters or Doctrine hydration populate them.
