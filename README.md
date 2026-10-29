@@ -112,7 +112,7 @@ vendor/bin/phpunit
 composer phpstan
 ```
 
-Run `php bin/console doctrine:schema:validate` separately to check synchronization with a live database. Unit tests cover registration validation, league/team source and handler behavior, and the team command. Local team-import verification is documented in [ARCHITECTURE.md](ARCHITECTURE.md).
+Run `php bin/console doctrine:schema:validate` separately to check synchronization with a live database. Unit tests cover registration validation (including defensive type guards), controller responses and password hashing, domain state, league/team sources and handlers, both import commands, repository delegation/error translation, and fixture construction. Run `composer test:coverage` with Xdebug installed to generate text coverage and an HTML report at `var/coverage/index.html`. Repository and fixture tests use mocks; they do not validate live database behavior. Local team-import verification is documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The development fixtures have not yet been updated to initialize all required League fields. Update them before loading fixtures against the expanded schema.
 

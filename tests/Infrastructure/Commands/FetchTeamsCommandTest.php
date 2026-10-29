@@ -81,4 +81,14 @@ final class FetchTeamsCommandTest extends TestCase
         self::assertSame(Command::SUCCESS, $tester->execute(['source' => 'rapid']));
         self::assertStringContainsString('Fetched 0 teams from "rapid".', $tester->getDisplay());
     }
+
+    public function testNonStringSourceIsInvalid(): void
+    {
+        $repository = $this->createMock(TeamRepositoryInterface::class);
+        $repository->expects(self::never())->method('createTeam');
+        $tester = new CommandTester(new FetchTeamsCommand(new TeamSourceRegistry([]), new ImportTeamsHandler($repository)));
+
+        self::assertSame(Command::INVALID, $tester->execute(['source' => 42]));
+        self::assertStringContainsString('The source argument must be a string.', $tester->getDisplay());
+    }
 }

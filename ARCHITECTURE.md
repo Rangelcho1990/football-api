@@ -139,12 +139,14 @@ Historical registration checks on 2026-10-14 (the test totals below predate leag
 - PHPStan level 10 passes using `--debug`; the four DTO constructor type errors are resolved through validation and explicit type narrowing.
 - PHPUnit passes: 3 tests and 61 assertions cover valid DTO construction, missing/invalid fields, and controller HTTP 422 responses without password hashing or persistence. These are unit tests, not live HTTP/database integration tests.
 
+Current unit verification on 2026-10-29: 96 tests and 628 assertions pass, with 100% of measured lines (377/377), methods (109/109), and classes (26/26) covered under the existing PHPUnit source configuration. Eight defensive-validator cases simulate a misconfigured underlying validator reporting no violations for missing or incorrectly typed fields; real Symfony constraints handle ordinary invalid requests. PHPStan level 10 and test formatting checks pass. These results do not establish branch/path coverage or live database/HTTP integration correctness.
+
 Priorities:
 
-1. Extend registration coverage for unexpected fields, normalization, password preservation, and malformed JSON responses.
+1. Extend registration coverage for unexpected fields and live HTTP integration; normalization, password preservation, malformed JSON responses, and defensive type guards have unit coverage.
 2. Narrow repository exception translation to duplicate-user constraint failures.
 3. Scope controller service tags and review public security prefixes, roles, and inactive-user policy.
-4. Add successful registration, duplicate-user, login, and JWT access tests, including HTTP and repository/database integration coverage.
+4. Add login and JWT access tests and live HTTP/repository integration tests; successful registration and duplicate-user responses now have unit coverage.
 5. Strengthen domain construction and invariants, then implement predictions, scoring, rankings, and football endpoints as needed.
 6. Align the legacy Compose database with MySQL/MariaDB, update League fixtures, and keep schema documentation synchronized.
 

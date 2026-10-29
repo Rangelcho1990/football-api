@@ -80,4 +80,47 @@ final class RapidLeagueSourceTest extends TestCase
             }
         }
     }
+
+    /**
+     * @param array<string, mixed>     $row
+     * @param class-string<\Throwable> $exceptionClass
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalidRows')]
+    public function testRejectsMalformedRowsAndAlwaysReleasesResult(array $row, string $message, string $exceptionClass): void
+    {
+        $result = $this->createMock(Result::class);
+        $result->expects(self::once())->method('iterateAssociative')->willReturn(new \ArrayIterator([$row]));
+        $result->expects(self::once())->method('free');
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())->method('executeQuery')->willReturn($result);
+
+        $this->expectException($exceptionClass);
+        $this->expectExceptionMessage($message);
+        iterator_to_array((new RapidLeagueSource($connection))->fetchLeagues());
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string, class-string<\Throwable>}> */
+    public static function invalidRows(): iterable
+    {
+        foreach (['abc', '1.5', 1.5, true, [], '-1'] as $country) {
+            yield 'invalid country '.serialize($country) => [['country_id' => $country, 'data' => '[]'], 'Rapid league country ID must be an integer.', \UnexpectedValueException::class];
+        }
+        foreach ([null, [], 12] as $data) {
+            yield 'invalid data '.serialize($data) => [['country_id' => 42, 'data' => $data], 'Rapid league data must be a JSON string.', \UnexpectedValueException::class];
+        }
+        yield 'invalid JSON' => [['country_id' => 42, 'data' => '{'], 'Syntax error', \JsonException::class];
+        foreach (['null', 'true', '1', '"text"', '{"key":[]}'] as $data) {
+            yield 'non-list '.$data => [['country_id' => 42, 'data' => $data], 'Rapid league data must be a JSON array.', \UnexpectedValueException::class];
+        }
+        yield 'invalid entry' => [['country_id' => 42, 'data' => '[null]'], 'Rapid league data contains an invalid league entry.', \UnexpectedValueException::class];
+        $valid = ['id' => 39, 'name' => 'Premier League', 'logo' => 'logo.png', 'type' => 'League'];
+        foreach (array_keys($valid) as $field) {
+            $league = $valid;
+            unset($league[$field]);
+            yield 'missing '.$field => [['country_id' => 42, 'data' => json_encode([['league' => $league]], JSON_THROW_ON_ERROR)], 'Rapid league data contains invalid league fields.', \UnexpectedValueException::class];
+            $league[$field] = 'id' === $field ? '39' : 42;
+            yield 'wrong type '.$field => [['country_id' => 42, 'data' => json_encode([['league' => $league]], JSON_THROW_ON_ERROR)], 'Rapid league data contains invalid league fields.', \UnexpectedValueException::class];
+        }
+        yield 'missing league' => [['country_id' => 42, 'data' => '[{}]'], 'Rapid league data contains invalid league fields.', \UnexpectedValueException::class];
+    }
 }

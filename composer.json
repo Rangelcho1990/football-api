@@ -68,7 +68,8 @@
             "@cs-fix",
             "@phpstan"
         ],
-        "test": "vendor/bin/phpunit --testdox"
+        "test": "vendor/bin/phpunit --testdox",
+        "test:coverage": "XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-text --coverage-html var/coverage"
     },
     "conflict": {
         "symfony/symfony": "*"
